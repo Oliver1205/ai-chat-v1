@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>我的第一个 AI 助手</title>
+    <style>
+        body { font-family: '微软雅黑', sans-serif; background-color: #f4f4f9; padding: 50px; text-align: center; }
+        #chat-box { width: 600px; height: 300px; margin: 20px auto; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: left; overflow-y: auto; line-height: 1.6; font-size: 16px; color: #333;}
+        input { width: 400px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+        button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-left: 10px; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+
+<h2>🤖 我的私人 AI 助手 (V1.0)</h2>
+
+<div>
+    <input type="text" id="userInput" placeholder="问我任何问题..." onkeydown="if(event.keyCode==13) askAI()">
+    <button onclick="askAI()">发送</button>
+</div>
+
+<div id="chat-box">等待提问...</div>
+
+<script>
+    function askAI() {
+        const input = document.getElementById('userInput').value;
+        if (!input) return alert("写点什么吧！");
+
+        const chatBox = document.getElementById('chat-box');
+        chatBox.innerHTML = "<b>AI 正在思考...</b><br><br>"; // 清空上次的聊天
+
+        // 这就是前端呼叫 SSE 接口的核心代码！EventSource 专门用来接水管的
+        const eventSource = new EventSource('/api/chat?message=' + encodeURIComponent(input));
+
+        chatBox.innerHTML = ""; // 准备开始打字
+
+        // 只要后台（也就是你写的 Controller）发来一个字，就触发这里
+        eventSource.onmessage = function(event) {
+            // 把新发来的字，拼接到页面上
+            chatBox.innerHTML += event.data;
+            // 让滚动条自动保持在最底部
+            chatBox.scrollTop = chatBox.scrollHeight;
+        };
+
+        // 当后台说“我说完了”（调用了 emitter.complete()），前端就主动关掉水管
+        eventSource.onerror = function(event) {
+            eventSource.close();
+        };
+    }
+</script>
+</body>
+</html>
