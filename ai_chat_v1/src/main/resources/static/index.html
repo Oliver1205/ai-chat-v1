@@ -2,51 +2,109 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>我的第一个 AI 助手</title>
+    <title>私人 AI 助手 - V4.0 探索版</title>
     <style>
-        body { font-family: '微软雅黑', sans-serif; background-color: #f4f4f9; padding: 50px; text-align: center; }
-        #chat-box { width: 600px; height: 300px; margin: 20px auto; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: left; overflow-y: auto; line-height: 1.6; font-size: 16px; color: #333;}
-        input { width: 400px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
-        button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-left: 10px; }
+        body { font-family: '微软雅黑', sans-serif; background-color: #f4f4f9; padding: 40px; text-align: center; }
+        .container { width: 700px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; color: #333; }
+        .version-tag { color: #007bff; font-size: 0.8em; vertical-align: super; }
+
+        /* 炫酷的状态指示牌 */
+        .status-badge { display: inline-block; margin: 5px; padding: 6px 16px; background-color: #e6f4ea; color: #1e8e3e; border-radius: 20px; font-size: 13px; font-weight: bold; }
+        .agent-badge { display: inline-block; margin: 5px; padding: 6px 16px; background-color: #fce8e6; color: #d93025; border-radius: 20px; font-size: 13px; font-weight: bold; }
+
+        #chat-box { height: 400px; margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #eee; text-align: left; overflow-y: auto; line-height: 1.6; font-size: 15px; color: #333;}
+        .input-area { display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; outline: none; transition: border-color 0.3s; }
+        input:focus { border-color: #007bff; }
+
+        button { padding: 12px 24px; background-color: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: bold; transition: background-color 0.2s; }
         button:hover { background-color: #0056b3; }
+        .btn-clear { background-color: #6c757d; }
+        .btn-clear:hover { background-color: #5a6268; }
+
+        /* 聊天气泡样式 */
+        .msg-user { margin-bottom: 15px; color: #0056b3; font-weight: bold; }
+        .msg-ai { margin-bottom: 25px; color: #333; }
+        .sys-tip { color: #28a745; text-align: center; margin-bottom: 15px; font-size: 14px; }
     </style>
 </head>
 <body>
 
-<h2>🤖 我的私人 AI 助手 (V1.0)</h2>
+<div class="container">
+    <h2>🤖 我的私人 AI 助手 <span class="version-tag">V4.0 探索版</span></h2>
 
-<div>
-    <input type="text" id="userInput" placeholder="问我任何问题..." onkeydown="if(event.keyCode==13) askAI()">
-    <button onclick="askAI()">发送</button>
+    <div>
+        <span class="status-badge">🟢 RAG 知识库：已挂载</span>
+        <span class="status-badge">🟢 上下文记忆：已激活</span>
+        <span class="agent-badge">🟡 Agent 工具箱：待解锁</span>
+    </div>
+
+    <div id="chat-box">
+        <div class="sys-tip">系统提示：已就绪。你可以问我普通问题，也可以问我公司的绝密规章哦！</div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="输入你想问的问题..." onkeydown="if(event.keyCode==13) askAI()">
+        <button onclick="askAI()">发送</button>
+        <button class="btn-clear" onclick="clearMemory()">开启新对话</button>
+    </div>
 </div>
-
-<div id="chat-box">等待提问...</div>
 
 <script>
     function askAI() {
-        const input = document.getElementById('userInput').value;
-        if (!input) return alert("写点什么吧！");
+        const inputField = document.getElementById('userInput');
+        const input = inputField.value.trim();
+        if (!input) return;
 
         const chatBox = document.getElementById('chat-box');
-        chatBox.innerHTML = "<b>AI 正在思考...</b><br><br>"; // 清空上次的聊天
 
-        // 这就是前端呼叫 SSE 接口的核心代码！EventSource 专门用来接水管的
+        // 把用户的提问渲染到页面上
+        chatBox.innerHTML += `<div class="msg-user">🧑 你：${input}</div>`;
+
+        // 增加一个“思考中”的动画提示
+        const loadingId = 'loading-' + Date.now();
+        chatBox.innerHTML += `<div id="${loadingId}" style="color: #888; margin-bottom: 10px;"><i>🤖 正在检索知识库并思考中...</i></div>`;
+
+        inputField.value = ''; // 清空输入框
+        chatBox.scrollTop = chatBox.scrollHeight; // 滚动到底部
+
+        // 发起 SSE 请求
         const eventSource = new EventSource('/api/chat?message=' + encodeURIComponent(input));
 
-        chatBox.innerHTML = ""; // 准备开始打字
+        let aiMessageDiv = document.createElement('div');
+        aiMessageDiv.className = 'msg-ai';
+        aiMessageDiv.innerHTML = "<b>🤖 AI：</b>";
+        chatBox.appendChild(aiMessageDiv);
 
-        // 只要后台（也就是你写的 Controller）发来一个字，就触发这里
+        let isFirstToken = true;
+
         eventSource.onmessage = function(event) {
-            // 把新发来的字，拼接到页面上
-            chatBox.innerHTML += event.data;
-            // 让滚动条自动保持在最底部
+            // 当收到第一个字的时候，把“思考中”的提示删掉
+            if (isFirstToken) {
+                const loader = document.getElementById(loadingId);
+                if(loader) loader.remove();
+                isFirstToken = false;
+            }
+            // 逐字追加到页面
+            aiMessageDiv.innerHTML += event.data;
             chatBox.scrollTop = chatBox.scrollHeight;
         };
 
-        // 当后台说“我说完了”（调用了 emitter.complete()），前端就主动关掉水管
         eventSource.onerror = function(event) {
             eventSource.close();
         };
+    }
+
+    // 调用我们在 V2.0 写的清空记忆接口
+    function clearMemory() {
+        fetch('/api/clear')
+            .then(res => res.text())
+            .then(text => {
+                const chatBox = document.getElementById('chat-box');
+                chatBox.innerHTML += `<div class="sys-tip">${text}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            });
     }
 </script>
 </body>
