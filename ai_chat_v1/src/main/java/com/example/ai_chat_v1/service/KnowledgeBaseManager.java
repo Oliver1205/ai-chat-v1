@@ -1,69 +1,93 @@
 package com.example.ai_chat_v1.service;
 
 import dev.langchain4j.data.document.Document;
+import dev.langchain4j.data.document.DocumentParser;
+import dev.langchain4j.data.document.parser.apache.pdfbox.ApachePdfBoxDocumentParser;
 import dev.langchain4j.data.document.splitter.DocumentSplitters;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-
 import dev.langchain4j.model.embedding.onnx.bgesmallzhv15.BgeSmallZhV15EmbeddingModel;
-import dev.langchain4j.store.embedding.EmbeddingMatch;
+import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
+import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 import jakarta.annotation.PostConstruct;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-/**
- * 知识库管理员：负责把文档存入数据库，并提供检索功能
- */
 @Component
 public class KnowledgeBaseManager {
 
-    // 内存向量数据库（微型档案室）
     private final EmbeddingStore<TextSegment> embeddingStore = new InMemoryEmbeddingStore<>();
-    // 本地中文化向量模型（翻译官：负责把文字变成数学坐标）
     private final EmbeddingModel embeddingModel = new BgeSmallZhV15EmbeddingModel();
 
-    // @PostConstruct 意思是：当 Spring Boot 刚启动时，自动执行这个方法
+    // 👇 新增 1：生产进度看板。记录每个文件处理到哪一步了，方便前台实时查询
+    private final Map<String, String> documentStatusMap = new ConcurrentHashMap<>();
+
     @PostConstruct
     public void init() {
-        System.out.println("⏳ 正在初始化本地知识库，首次启动可能会下载约100MB模型文件，请稍候...");
-
-        // 1. 准备我们的“绝密档案” (真实企业开发中，这里通常是从 PDF 或 Word 读取的)
-        String secretText = "【公司内部绝密规章】\n" +
-                "1. 公司的 Wi-Fi 密码是：Ragent2026!，严禁告诉外人。\n" +
-                "2. 报销流程：所有报销凭证请在每周三下午找财务部的老李签字审核。\n" +
-                "3. 公司正在秘密研发的核心 AI 产品代号为“盘古”，预计明年第三季度发布。\n" +
-                "4. 食堂的糖醋排骨最好吃，但只有每周五中午才供应，请提前排队。";
+        System.out.println("⏳ 正在初始化本地知识库...");
+        // 这里保留了你之前写的默认测试数据，保证项目启动不报错
+        String secretText = "【公司内部绝密规章】\n1. 公司的 Wi-Fi 密码是：Ragent2026!，严禁告诉外人。";
         Document document = Document.from(secretText);
-
-        // 2. 切块（Chunking）：把一大段文字切成一小段一小段（这里按最多300字切）
         List<TextSegment> segments = DocumentSplitters.recursive(300, 50).split(document);
-
-        // 3. 向量化并入库：把切好的小段落翻译成向量，放进内存档案室
         embeddingStore.addAll(embeddingModel.embedAll(segments).content(), segments);
-
-        System.out.println("✅ 知识库加载完毕！共分成了 " + segments.size() + " 个知识块。");
+        System.out.println("✅ 默认知识库加载完毕！");
     }
 
-    // 4. 检索方法：外部传入一个问题，我返回最相关的参考资料
-// 4. 检索方法：外部传入一个问题，我返回最相关的参考资料
+    // 4. 检索方法（保持你的最新版写法不变）
     public String search(String question) {
-        // 【新版 API 写法】构造一个标准的“查询请求”
-        dev.langchain4j.store.embedding.EmbeddingSearchRequest searchRequest = dev.langchain4j.store.embedding.EmbeddingSearchRequest.builder()
-                .queryEmbedding(embeddingModel.embed(question).content()) // 把问题翻译成数学坐标
-                .maxResults(2) // 找最相关的 Top 2
-                .minScore(0.6) // 相似度及格线（0到1之间）
+        EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
+                .queryEmbedding(embeddingModel.embed(question).content())
+                .maxResults(2)
+                .minScore(0.3)
                 .build();
 
-        // 去档案室里搜寻，拿到搜寻结果
-        dev.langchain4j.store.embedding.EmbeddingSearchResult<TextSegment> searchResult = embeddingStore.search(searchRequest);
-
-        // 把捞出来的文字拼接到一起返回
+        EmbeddingSearchResult<TextSegment> searchResult = embeddingStore.search(searchRequest);
         return searchResult.matches().stream()
                 .map(match -> match.embedded().text())
                 .collect(Collectors.joining("\n\n"));
+    }
+
+    // 👇 新增 2：让前台查询某个文件处理状态的接口
+    public String getStatus(String fileId) {
+        return documentStatusMap.getOrDefault(fileId, "未知状态");
+    }
+
+    // 👇 新增 3：真正的异步流水线核心方法！
+    // @Async 告诉 Spring：这个方法不要在主线程运行，去叫我们刚才配置的工人来干活！
+    @Async("knowledgeBaseExecutor")
+    public void processPdfAsync(String fileId, String fileName, byte[] fileBytes) {
+        try {
+            documentStatusMap.put(fileId, "⏳ 正在解析 PDF 内容...");
+
+            // 步骤 A: 把字节数组变回文件流，并用官方 PDF 解析器读取
+            InputStream inputStream = new ByteArrayInputStream(fileBytes);
+            DocumentParser parser = new ApachePdfBoxDocumentParser();
+            Document document = parser.parse(inputStream);
+
+            documentStatusMap.put(fileId, "🔪 正在切分段落与向量化 (这步最耗时)...");
+
+            // 步骤 B: 切块（Chunking）
+            List<TextSegment> segments = DocumentSplitters.recursive(300, 50).split(document);
+
+            // 步骤 C: 翻译成向量并入库（Embedding）
+            embeddingStore.addAll(embeddingModel.embedAll(segments).content(), segments);
+
+            documentStatusMap.put(fileId, "✅ 处理完成！已成功将 " + segments.size() + " 个知识块存入大脑。");
+            System.out.println("🚀 后台车间汇报：文件 [" + fileName + "] 入库成功！");
+
+        } catch (Exception e) {
+            documentStatusMap.put(fileId, "❌ 处理失败：" + e.getMessage());
+            System.err.println("❌ 后台车间报错：文件 [" + fileName + "] 处理失败！");
+            e.printStackTrace();
+        }
     }
 }

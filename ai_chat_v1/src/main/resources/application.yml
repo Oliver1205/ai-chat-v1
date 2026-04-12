@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: ai-chat-v1
+  servlet:
+    multipart:
+      max-file-size: 50MB       # 允许单个文件最大 50MB
+      max-request-size: 50MB    # 允许整个请求最大 50MB
 
 langchain4j:
   open-ai:
@@ -14,3 +18,4 @@ langchain4j:
       temperature: 0.7
       log-requests: true
       log-responses: true
+

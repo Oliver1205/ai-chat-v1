@@ -2,46 +2,60 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人 AI 助手 - V4.0 探索版</title>
+    <title>私人 AI 助手 - V4.1 流水线版</title>
     <style>
-        body { font-family: '微软雅黑', sans-serif; background-color: #f4f4f9; padding: 40px; text-align: center; }
-        .container { width: 700px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        body { font-family: '微软雅黑', sans-serif; background-color: #f4f4f9; padding: 30px; text-align: center; }
+        .container { width: 750px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
         h2 { margin-top: 0; color: #333; }
-        .version-tag { color: #007bff; font-size: 0.8em; vertical-align: super; }
+        .version-tag { color: #dc3545; font-size: 0.8em; vertical-align: super; font-weight: bold; }
 
-        /* 炫酷的状态指示牌 */
         .status-badge { display: inline-block; margin: 5px; padding: 6px 16px; background-color: #e6f4ea; color: #1e8e3e; border-radius: 20px; font-size: 13px; font-weight: bold; }
         .agent-badge { display: inline-block; margin: 5px; padding: 6px 16px; background-color: #fce8e6; color: #d93025; border-radius: 20px; font-size: 13px; font-weight: bold; }
 
-        #chat-box { height: 400px; margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #eee; text-align: left; overflow-y: auto; line-height: 1.6; font-size: 15px; color: #333;}
+        .upload-section { background: #f8f9fa; border: 2px dashed #007bff; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: left; }
+        .upload-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        input[type="file"] { font-size: 14px; }
+        .btn-upload { background-color: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-upload:hover { background-color: #218838; }
+        #upload-status { font-size: 14px; font-weight: bold; color: #666; margin-top: 5px; }
+
+        #chat-box { height: 350px; margin: 20px 0; padding: 20px; background: #fff; border-radius: 8px; border: 1px solid #ddd; text-align: left; overflow-y: auto; line-height: 1.6; font-size: 15px; color: #333; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
         .input-area { display: flex; gap: 10px; }
-        input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; outline: none; transition: border-color 0.3s; }
-        input:focus { border-color: #007bff; }
+        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; outline: none; transition: border-color 0.3s; }
+        input[type="text"]:focus { border-color: #007bff; }
 
         button { padding: 12px 24px; background-color: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: bold; transition: background-color 0.2s; }
         button:hover { background-color: #0056b3; }
         .btn-clear { background-color: #6c757d; }
         .btn-clear:hover { background-color: #5a6268; }
 
-        /* 聊天气泡样式 */
         .msg-user { margin-bottom: 15px; color: #0056b3; font-weight: bold; }
         .msg-ai { margin-bottom: 25px; color: #333; }
-        .sys-tip { color: #28a745; text-align: center; margin-bottom: 15px; font-size: 14px; }
+        .sys-tip { color: #28a745; text-align: center; margin-bottom: 15px; font-size: 14px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🤖 我的私人 AI 助手 <span class="version-tag">V4.0 探索版</span></h2>
+    <h2>🤖 我的私人 AI 助手 <span class="version-tag">V4.1 企业流水线版</span></h2>
 
     <div>
-        <span class="status-badge">🟢 RAG 知识库：已挂载</span>
+        <span class="status-badge">🟢 异步 RAG：已挂载</span>
         <span class="status-badge">🟢 上下文记忆：已激活</span>
         <span class="agent-badge">🟡 Agent 工具箱：待解锁</span>
     </div>
 
+    <div class="upload-section">
+        <div class="upload-controls">
+            <b>📚 投喂新知识 (PDF)：</b>
+            <input type="file" id="pdfInput" accept="application/pdf">
+            <button class="btn-upload" onclick="uploadPdf()">投喂给 AI</button>
+        </div>
+        <div id="upload-status">等待上传... (建议上传较小的 PDF 测试)</div>
+    </div>
+
     <div id="chat-box">
-        <div class="sys-tip">系统提示：已就绪。你可以问我普通问题，也可以问我公司的绝密规章哦！</div>
+        <div class="sys-tip">系统提示：AI 已就绪。你可以直接上传你的 PDF 资料，然后向我提问！</div>
     </div>
 
     <div class="input-area">
@@ -52,24 +66,76 @@
 </div>
 
 <script>
+    function uploadPdf() {
+        const fileInput = document.getElementById('pdfInput');
+        const file = fileInput.files[0];
+        if (!file) {
+            alert("请先选择一个 PDF 文件！");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+        const fileName = file.name;
+
+        const statusDiv = document.getElementById('upload-status');
+        statusDiv.innerHTML = "🚀 正在交接给后台车间...";
+        statusDiv.style.color = "#007bff";
+
+        fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.text())
+            .then(text => {
+                startPolling(fileName);
+            })
+            .catch(err => {
+                statusDiv.innerHTML = "❌ 网络错误：" + err;
+                statusDiv.style.color = "red";
+            });
+    }
+
+    function startPolling(fileId) {
+        const statusDiv = document.getElementById('upload-status');
+        const chatBox = document.getElementById('chat-box');
+
+        const interval = setInterval(() => {
+            fetch('/api/upload/status?fileId=' + encodeURIComponent(fileId))
+                .then(res => res.text())
+                .then(statusText => {
+                    statusDiv.innerHTML = statusText;
+
+                    if (statusText.includes("✅") || statusText.includes("❌")) {
+                        clearInterval(interval);
+                        if (statusText.includes("✅")) {
+                            statusDiv.style.color = "#28a745";
+                            chatBox.innerHTML += `<div class="sys-tip">🎉 系统：文件 [${fileId}] 已成功刻入 AI 脑海！来测试一下吧！</div>`;
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        } else {
+                            statusDiv.style.color = "red";
+                        }
+                    } else {
+                        statusDiv.style.color = "#fd7e14";
+                    }
+                });
+        }, 1000);
+    }
+
     function askAI() {
         const inputField = document.getElementById('userInput');
         const input = inputField.value.trim();
         if (!input) return;
 
         const chatBox = document.getElementById('chat-box');
-
-        // 把用户的提问渲染到页面上
         chatBox.innerHTML += `<div class="msg-user">🧑 你：${input}</div>`;
 
-        // 增加一个“思考中”的动画提示
         const loadingId = 'loading-' + Date.now();
-        chatBox.innerHTML += `<div id="${loadingId}" style="color: #888; margin-bottom: 10px;"><i>🤖 正在检索知识库并思考中...</i></div>`;
+        chatBox.innerHTML += `<div id="${loadingId}" style="color: #888; margin-bottom: 10px;"><i>🤖 正在查阅知识库并思考中...</i></div>`;
 
-        inputField.value = ''; // 清空输入框
-        chatBox.scrollTop = chatBox.scrollHeight; // 滚动到底部
+        inputField.value = '';
+        chatBox.scrollTop = chatBox.scrollHeight;
 
-        // 发起 SSE 请求
         const eventSource = new EventSource('/api/chat?message=' + encodeURIComponent(input));
 
         let aiMessageDiv = document.createElement('div');
@@ -80,13 +146,11 @@
         let isFirstToken = true;
 
         eventSource.onmessage = function(event) {
-            // 当收到第一个字的时候，把“思考中”的提示删掉
             if (isFirstToken) {
                 const loader = document.getElementById(loadingId);
                 if(loader) loader.remove();
                 isFirstToken = false;
             }
-            // 逐字追加到页面
             aiMessageDiv.innerHTML += event.data;
             chatBox.scrollTop = chatBox.scrollHeight;
         };
@@ -96,7 +160,6 @@
         };
     }
 
-    // 调用我们在 V2.0 写的清空记忆接口
     function clearMemory() {
         fetch('/api/clear')
             .then(res => res.text())
