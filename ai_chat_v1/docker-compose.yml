@@ -1,0 +1,13 @@
+name: ai-chat-project  # 👈 新增：这就是你在 Docker Desktop 里看到的那个分组名字！
+version: '3.8'
+services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: ai_chat_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ai_chat_v1
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./mysql_data:/var/lib/mysql

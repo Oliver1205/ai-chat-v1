@@ -2,172 +2,428 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人 AI 助手 - V4.1 流水线版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企业级 AI 助手 V5.1 (微信 UI 版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/highlight.min.js"></script>
+
     <style>
-        body { font-family: '微软雅黑', sans-serif; background-color: #f4f4f9; padding: 30px; text-align: center; }
-        .container { width: 750px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
-        h2 { margin-top: 0; color: #333; }
-        .version-tag { color: #dc3545; font-size: 0.8em; vertical-align: super; font-weight: bold; }
+        :root {
+            --primary-color: #007bff;
+            --bg-color: #f5f5f5; /* 微信聊天背景的浅灰色 */
+            --sidebar-bg: #2e2e2e;
+            --sidebar-hover: #3d3d3d;
+            --text-color: #333;
+            --border-color: #e5e5e5;
+        }
 
-        .status-badge { display: inline-block; margin: 5px; padding: 6px 16px; background-color: #e6f4ea; color: #1e8e3e; border-radius: 20px; font-size: 13px; font-weight: bold; }
-        .agent-badge { display: inline-block; margin: 5px; padding: 6px 16px; background-color: #fce8e6; color: #d93025; border-radius: 20px; font-size: 13px; font-weight: bold; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
 
-        .upload-section { background: #f8f9fa; border: 2px dashed #007bff; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: left; }
-        .upload-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-        input[type="file"] { font-size: 14px; }
-        .btn-upload { background-color: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-upload:hover { background-color: #218838; }
-        #upload-status { font-size: 14px; font-weight: bold; color: #666; margin-top: 5px; }
+        /* --- 左侧边栏样式 --- */
+        #sidebar {
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            color: #d1d1d1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            box-sizing: border-box;
+        }
 
-        #chat-box { height: 350px; margin: 20px 0; padding: 20px; background: #fff; border-radius: 8px; border: 1px solid #ddd; text-align: left; overflow-y: auto; line-height: 1.6; font-size: 15px; color: #333; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
-        .input-area { display: flex; gap: 10px; }
-        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; outline: none; transition: border-color 0.3s; }
-        input[type="text"]:focus { border-color: #007bff; }
+        .new-chat-btn {
+            background-color: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 14px;
+            margin-bottom: 20px;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+        }
+        .new-chat-btn:hover { background-color: var(--sidebar-hover); }
+        .new-chat-btn::before { content: '+'; margin-right: 10px; font-size: 18px; }
 
-        button { padding: 12px 24px; background-color: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: bold; transition: background-color 0.2s; }
-        button:hover { background-color: #0056b3; }
-        .btn-clear { background-color: #6c757d; }
-        .btn-clear:hover { background-color: #5a6268; }
+        #session-list { flex: 1; overflow-y: auto; }
+        .session-item {
+            padding: 12px;
+            margin-bottom: 5px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: 0.2s;
+        }
+        .session-item:hover { background-color: var(--sidebar-hover); }
+        .session-item.active { background-color: #4a4a4a; color: white; }
 
-        .msg-user { margin-bottom: 15px; color: #0056b3; font-weight: bold; }
-        .msg-ai { margin-bottom: 25px; color: #333; }
-        .sys-tip { color: #28a745; text-align: center; margin-bottom: 15px; font-size: 14px; font-weight: bold; }
+        /* --- 右侧主区域样式 --- */
+        #main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-color);
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            padding: 15px 0;
+            background: #f5f5f5;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
+        }
+        .header h1 { margin: 0; font-size: 18px; color: #333; }
+
+        /* 聊天窗口 */
+        #chat-window {
+            flex: 1;
+            padding: 20px 10%; /* 左右留白，更像聊天软件 */
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+
+        /* 👇 核心升级：微信聊天气泡布局 */
+        .message {
+            display: flex;
+            margin-bottom: 20px;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        /* 用户消息：靠右 */
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        /* AI消息：靠左 */
+        .message.ai {
+            flex-direction: row;
+        }
+
+        /* 头像 */
+        .message-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        .message.user .message-icon { margin-left: 15px; background-color: #e3f2fd; }
+        .message.ai .message-icon { margin-right: 15px; background-color: #ffffff; border: 1px solid #ddd;}
+
+        /* 气泡内容 */
+        .message-content {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1.6;
+            word-wrap: break-word;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        /* 用户的气泡：微信绿 */
+        .message.user .message-content {
+            background-color: #95ec69;
+            color: #000;
+            border-top-right-radius: 2px; /* 气泡小尖角 */
+        }
+
+        /* AI的气泡：纯白 */
+        .message.ai .message-content {
+            background-color: #ffffff;
+            color: #333;
+            border-top-left-radius: 2px;
+        }
+
+        /* Markdown 样式修饰 */
+        .message-content p { margin-top: 0; margin-bottom: 0.5em; }
+        .message-content p:last-child { margin-bottom: 0; }
+        .message-content pre {
+            background-color: #282c34;
+            color: #abb2bf;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+        .message-content code { font-family: Consolas, Monaco, monospace; }
+
+        /* 底部输入区 */
+        .input-area {
+            padding: 20px 10%;
+            background: #f5f5f5;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        #message-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font-size: 15px;
+            outline: none;
+            resize: none;
+            min-height: 24px;
+            max-height: 120px;
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        #message-input:focus { border-color: #1aad19; }
+
+        button {
+            padding: 10px 24px;
+            height: 48px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            transition: 0.2s;
+            background-color: #1aad19; /* 微信发送按钮绿 */
+            color: white;
+        }
+        button:hover { background-color: #129611; }
+        button:disabled { background-color: #a5e0a4; cursor: not-allowed; }
+
+        #global-loading {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.7); color: white; padding: 15px 30px; border-radius: 8px;
+            display: none; z-index: 100;
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>🤖 我的私人 AI 助手 <span class="version-tag">V4.1 企业流水线版</span></h2>
+<div id="sidebar">
+    <button class="new-chat-btn" onclick="createNewSession()">新建对话</button>
+    <div id="session-list"></div>
+</div>
 
-    <div>
-        <span class="status-badge">🟢 异步 RAG：已挂载</span>
-        <span class="status-badge">🟢 上下文记忆：已激活</span>
-        <span class="agent-badge">🟡 Agent 工具箱：待解锁</span>
+<div id="main-content">
+    <div class="header">
+        <h1>🤖 私人 AI 助手 <span style="color: #1aad19; font-size: 14px; font-weight: normal; margin-left: 10px;">微信气泡版</span></h1>
     </div>
 
-    <div class="upload-section">
-        <div class="upload-controls">
-            <b>📚 投喂新知识 (PDF)：</b>
-            <input type="file" id="pdfInput" accept="application/pdf">
-            <button class="btn-upload" onclick="uploadPdf()">投喂给 AI</button>
-        </div>
-        <div id="upload-status">等待上传... (建议上传较小的 PDF 测试)</div>
-    </div>
+    <div id="global-loading">加载历史记录中...</div>
 
-    <div id="chat-box">
-        <div class="sys-tip">系统提示：AI 已就绪。你可以直接上传你的 PDF 资料，然后向我提问！</div>
+    <div id="chat-window">
+        <div style="text-align: center; color: #999; margin-top: 50px;">👈 请在左侧选择或新建一个对话</div>
     </div>
 
     <div class="input-area">
-        <input type="text" id="userInput" placeholder="输入你想问的问题..." onkeydown="if(event.keyCode==13) askAI()">
-        <button onclick="askAI()">发送</button>
-        <button class="btn-clear" onclick="clearMemory()">开启新对话</button>
+        <textarea id="message-input" placeholder="输入你想问的问题 (Enter 发送)" onkeypress="handleEnter(event)" disabled></textarea>
+        <button id="send-btn" onclick="sendMessage()" disabled>发送</button>
     </div>
 </div>
 
 <script>
-    function uploadPdf() {
-        const fileInput = document.getElementById('pdfInput');
-        const file = fileInput.files[0];
-        if (!file) {
-            alert("请先选择一个 PDF 文件！");
-            return;
-        }
+    marked.setOptions({
+        highlight: function(code, lang) {
+            const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+            return hljs.highlight(code, { language }).value;
+        },
+        breaks: true
+    });
 
-        const formData = new FormData();
-        formData.append("file", file);
-        const fileName = file.name;
+    let currentSessionId = null;
 
-        const statusDiv = document.getElementById('upload-status');
-        statusDiv.innerHTML = "🚀 正在交接给后台车间...";
-        statusDiv.style.color = "#007bff";
+    window.onload = function() { loadSessions(); };
 
-        fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-        })
-            .then(res => res.text())
-            .then(text => {
-                startPolling(fileName);
-            })
-            .catch(err => {
-                statusDiv.innerHTML = "❌ 网络错误：" + err;
-                statusDiv.style.color = "red";
+    async function loadSessions() {
+        try {
+            const response = await fetch('/api/sessions');
+            const sessions = await response.json();
+            const listContainer = document.getElementById('session-list');
+            listContainer.innerHTML = '';
+
+            if (sessions.length === 0) return;
+
+            sessions.forEach(session => {
+                const div = document.createElement('div');
+                div.className = 'session-item';
+                if (session.id === currentSessionId) div.classList.add('active');
+                div.innerText = session.title;
+                div.onclick = () => switchSession(session.id, div);
+                listContainer.appendChild(div);
             });
+
+            if (!currentSessionId && sessions.length > 0) {
+                switchSession(sessions[0].id, listContainer.firstChild);
+            }
+        } catch (error) { console.error("加载失败:", error); }
     }
 
-    function startPolling(fileId) {
-        const statusDiv = document.getElementById('upload-status');
-        const chatBox = document.getElementById('chat-box');
+    async function createNewSession() {
+        try {
+            const response = await fetch('/api/sessions', { method: 'POST' });
+            const newSession = await response.json();
+            await loadSessions();
+            const items = document.querySelectorAll('.session-item');
+            for(let item of items) {
+                if(item.innerText === newSession.title) {
+                    switchSession(newSession.id, item);
+                    break;
+                }
+            }
+        } catch (error) { alert("新建对话失败"); }
+    }
 
-        const interval = setInterval(() => {
-            fetch('/api/upload/status?fileId=' + encodeURIComponent(fileId))
-                .then(res => res.text())
-                .then(statusText => {
-                    statusDiv.innerHTML = statusText;
+    async function switchSession(sessionId, element) {
+        currentSessionId = sessionId;
+        document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
+        if(element) element.classList.add('active');
 
-                    if (statusText.includes("✅") || statusText.includes("❌")) {
-                        clearInterval(interval);
-                        if (statusText.includes("✅")) {
-                            statusDiv.style.color = "#28a745";
-                            chatBox.innerHTML += `<div class="sys-tip">🎉 系统：文件 [${fileId}] 已成功刻入 AI 脑海！来测试一下吧！</div>`;
-                            chatBox.scrollTop = chatBox.scrollHeight;
-                        } else {
-                            statusDiv.style.color = "red";
+        document.getElementById('message-input').disabled = false;
+        document.getElementById('send-btn').disabled = false;
+
+        const chatWindow = document.getElementById('chat-window');
+        chatWindow.innerHTML = '';
+        document.getElementById('global-loading').style.display = 'block';
+
+        try {
+            const response = await fetch(`/api/sessions/${sessionId}/messages`);
+            const messages = await response.json();
+            document.getElementById('global-loading').style.display = 'none';
+
+            if (messages.length === 0) {
+                chatWindow.innerHTML = '<div style="text-align: center; color: #999; margin-top: 50px;">打个招呼吧！</div>';
+            } else {
+                messages.forEach(msg => {
+                    let displayContent = msg.content;
+
+                    // 👇 核心修复：解析恶心的 JSON 格式
+                    try {
+                        const jsonObj = JSON.parse(msg.content);
+                        if (msg.role === 'USER') {
+                            // 提取用户说话的真实内容
+                            if (jsonObj.contents && jsonObj.contents.length > 0) {
+                                displayContent = jsonObj.contents[0].text;
+                            } else if (jsonObj.text) {
+                                displayContent = jsonObj.text;
+                            }
+                        } else if (msg.role === 'AI') {
+                            if (jsonObj.text) displayContent = jsonObj.text;
                         }
+                    } catch (e) {
+                        // 如果不是JSON（比如旧数据），就原样显示
+                    }
+
+                    // 处理 RAG 参考资料的隐藏逻辑
+                    if(msg.role === 'USER') {
+                        const match = displayContent.match(/【我的问题】\n([\s\S]*)/);
+                        if (match) displayContent = "*(带着参考资料提问)* <br>" + match[1];
+                        appendMessage('user', displayContent);
                     } else {
-                        statusDiv.style.color = "#fd7e14";
+                        appendMessage('ai', displayContent);
                     }
                 });
-        }, 1000);
+            }
+            scrollToBottom();
+        } catch (error) {
+            document.getElementById('global-loading').style.display = 'none';
+            chatWindow.innerHTML = '<div style="color: red; text-align:center;">拉取失败</div>';
+        }
     }
 
-    function askAI() {
-        const inputField = document.getElementById('userInput');
-        const input = inputField.value.trim();
-        if (!input) return;
+    function handleEnter(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault(); // 防止回车换行
+            sendMessage();
+        }
+    }
 
-        const chatBox = document.getElementById('chat-box');
-        chatBox.innerHTML += `<div class="msg-user">🧑 你：${input}</div>`;
+    function sendMessage() {
+        if (!currentSessionId) return;
 
-        const loadingId = 'loading-' + Date.now();
-        chatBox.innerHTML += `<div id="${loadingId}" style="color: #888; margin-bottom: 10px;"><i>🤖 正在查阅知识库并思考中...</i></div>`;
+        const inputElement = document.getElementById('message-input');
+        const message = inputElement.value.trim();
+        if (!message) return;
 
-        inputField.value = '';
-        chatBox.scrollTop = chatBox.scrollHeight;
+        appendMessage('user', message);
+        inputElement.value = '';
+        inputElement.disabled = true;
+        document.getElementById('send-btn').disabled = true;
 
-        const eventSource = new EventSource('/api/chat?message=' + encodeURIComponent(input));
+        const aiMessageContentBox = appendMessage('ai', '...');
 
-        let aiMessageDiv = document.createElement('div');
-        aiMessageDiv.className = 'msg-ai';
-        aiMessageDiv.innerHTML = "<b>🤖 AI：</b>";
-        chatBox.appendChild(aiMessageDiv);
-
+        const eventSource = new EventSource(`/api/chat?sessionId=${currentSessionId}&message=${encodeURIComponent(message)}`);
+        let fullResponse = "";
         let isFirstToken = true;
 
         eventSource.onmessage = function(event) {
             if (isFirstToken) {
-                const loader = document.getElementById(loadingId);
-                if(loader) loader.remove();
+                aiMessageContentBox.innerHTML = '';
                 isFirstToken = false;
             }
-            aiMessageDiv.innerHTML += event.data;
-            chatBox.scrollTop = chatBox.scrollHeight;
+            fullResponse += event.data;
+            aiMessageContentBox.innerHTML = marked.parse(fullResponse);
+            scrollToBottom();
         };
 
-        eventSource.onerror = function(event) {
+        eventSource.onerror = function() {
             eventSource.close();
+            inputElement.disabled = false;
+            document.getElementById('send-btn').disabled = false;
+            inputElement.focus();
         };
     }
 
-    function clearMemory() {
-        fetch('/api/clear')
-            .then(res => res.text())
-            .then(text => {
-                const chatBox = document.getElementById('chat-box');
-                chatBox.innerHTML += `<div class="sys-tip">${text}</div>`;
-                chatBox.scrollTop = chatBox.scrollHeight;
-            });
+    function appendMessage(sender, text) {
+        const chatWindow = document.getElementById('chat-window');
+        if (chatWindow.innerHTML.includes('打个招呼吧') || chatWindow.innerHTML.includes('👈 请在左侧')) {
+            chatWindow.innerHTML = '';
+        }
+
+        const messageDiv = document.createElement('div');
+        // 加上 sender (user 或 ai)，CSS 才能区分左右！
+        messageDiv.className = `message ${sender}`;
+
+        const iconDiv = document.createElement('div');
+        iconDiv.className = 'message-icon';
+        iconDiv.innerText = sender === 'user' ? '🐶' : '🤖'; // 你的专属头像
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+
+        if (sender === 'ai' && text !== '...') {
+            contentDiv.innerHTML = marked.parse(text);
+        } else {
+            contentDiv.innerHTML = text;
+        }
+
+        messageDiv.appendChild(iconDiv);
+        messageDiv.appendChild(contentDiv);
+        chatWindow.appendChild(messageDiv);
+
+        scrollToBottom();
+        return contentDiv;
+    }
+
+    function scrollToBottom() {
+        const chatWindow = document.getElementById('chat-window');
+        chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 </script>
 </body>

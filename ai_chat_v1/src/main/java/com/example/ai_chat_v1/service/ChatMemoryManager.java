@@ -1,29 +1,30 @@
 package com.example.ai_chat_v1.service;
 
-import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-@Component
+@Service
 public class ChatMemoryManager {
 
-    private final Map<String, ChatMemory> memoryMap = new ConcurrentHashMap<>();
+    private final DbChatMemoryStore dbChatMemoryStore;
 
-    // 1. 获取或创建记忆
-    public ChatMemory getOrCreate(String sessionId) {
-        return memoryMap.computeIfAbsent(sessionId, id -> {
-            ChatMemory memory = MessageWindowChatMemory.withMaxMessages(10);
-            memory.add(SystemMessage.from("你是一个耐心、清晰、友好的 AI 助手。回答时尽量条理化，优先使用中文。"));
-            return memory;
-        });
+    // 👇 构造器注入：把我们刚写的数据库记忆存储器拿过来
+    public ChatMemoryManager(DbChatMemoryStore dbChatMemoryStore) {
+        this.dbChatMemoryStore = dbChatMemoryStore;
     }
 
-    // 2. 清空指定用户的记忆（解决你的报错！）
+    public ChatMemory getOrCreate(String sessionId) {
+        return MessageWindowChatMemory.builder()
+                .id(sessionId)
+                .maxMessages(20) // 依然保留最近 20 条的窗口机制（防止大模型被撑爆）
+                .chatMemoryStore(dbChatMemoryStore) // 👈 灵魂挂载点：彻底替换掉内存存储！
+                .build();
+    }
+
+    // 👇 补回被遗忘的清空方法
     public void clear(String sessionId) {
-        memoryMap.remove(sessionId);
+        // 直接调用我们刚才写的数据库删除功能
+        dbChatMemoryStore.deleteMessages(sessionId);
     }
 }

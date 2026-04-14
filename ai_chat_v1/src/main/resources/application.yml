@@ -4,10 +4,28 @@ server:
 spring:
   application:
     name: ai-chat-v1
+
+  # 👇 注意看，datasource 现在和 application、servlet 平级了
+  datasource:
+    url: jdbc:mysql://localhost:3307/ai_chat_v1?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # 👇 jpa 也是平级的
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  # 👇 原来的文件上传配置依然留着
   servlet:
     multipart:
-      max-file-size: 50MB       # 允许单个文件最大 50MB
-      max-request-size: 50MB    # 允许整个请求最大 50MB
+      max-file-size: 50MB
+      max-request-size: 50MB
 
 langchain4j:
   open-ai:
@@ -18,4 +36,3 @@ langchain4j:
       temperature: 0.7
       log-requests: true
       log-responses: true
-
