@@ -4,6 +4,9 @@
 
 ---
 
+<img width="1920" height="989" alt="image" src="https://github.com/user-attachments/assets/f6c5a715-51d7-4293-9ea2-0eb4b5291f63" />
+
+
 ## ✨ 核心特性
 
 - 🤖 **大模型集成**：深度集成 DeepSeek-V3 流式对话，响应速度快，思维逻辑强。
