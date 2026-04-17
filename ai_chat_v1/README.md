@@ -1,45 +1,165 @@
-# 🚀 企业级全栈 AI 助手 (V5.1 持久记忆版)
+# 🚀 ai-chat-v1｜企业级全栈 AI 助手（持久记忆版）
 
-这是一个基于 **Spring Boot 3.x**、**LangChain4j** 和 **MySQL** 构建的端到端 AI 对话系统。它不仅支持 RAG（检索增强生成）知识库，还具备 Agent（工具调用）能力，并通过数据库实现了完美的对话持久化。
-
----
-
-## ✨ 核心特性
-
-- 🤖 **大模型集成**：深度集成 DeepSeek-V3 流式对话，响应速度快，思维逻辑强。
-- 💾 **多会话持久化**：使用 MySQL 存储会话与聊天记录，支持“关机再开”记忆不丢失。
-- 📱 **微信级 UI**：响应式布局，具备左侧会话切换和右侧左右交替式聊天气泡。
-- 📚 **RAG 知识库**：支持 PDF 异步上传与向量处理，AI 会基于你的文档进行回答。
-- 🛠️ **Agent 工具化**：预挂载天气查询等 Tool，AI 会根据需求自动调用外部 API。
-- 🐳 **容器化部署**：一键式 `docker-compose` 启动环境，无需手动配置繁琐的数据库。
+一个基于 **Spring Boot 3.x**、**LangChain4j**、**MySQL** 构建的端到端 AI 对话系统。  
+它不仅支持 **流式对话**、**RAG 检索增强生成**、**Agent 工具调用**，还通过数据库实现了 **多会话持久化记忆**，并逐步打磨为一个更接近真实产品形态的 AI 应用项目。
 
 ---
 
-## 🛠️ 技术栈
+## ✨ 项目简介
+
+`ai-chat-v1` 是一个从 0 到 1 持续迭代的个人 AI 应用项目，目标不是只做一个“能跑起来的 Demo”，而是尽量完成一个：
+
+- 架构清晰
+- 可持续扩展
+- 前后端分离
+- 具备产品展示感
+- 适合写进简历 / GitHub 展示 / 项目录屏讲解
+
+的 AI 助手系统。
+
+当前版本已经具备基础聊天能力、知识库问答能力、工具调用能力，以及基于 MySQL 的会话与消息持久化能力，并在近期持续完成了后端职责拆分与前端产品化升级。
+
+---
+
+## 🔥 核心特性
+
+- 🤖 **大模型集成**  
+  深度集成 DeepSeek 系列模型，支持流式输出，响应自然，交互体验更接近真实 AI 产品。
+
+- 💾 **多会话持久化**  
+  使用 MySQL 存储会话与聊天记录，支持历史会话管理，“关机再开”记忆不丢失。
+
+- 📚 **RAG 知识库能力**  
+  支持 PDF 文档异步上传、解析、切块、向量化与检索，AI 可以基于本地知识进行增强回答。
+
+- 🛠️ **Agent / Tool Calling**  
+  预留并接入天气查询等工具能力，模型可在需要时自动调用外部工具完成任务。
+
+- 🧠 **持久记忆体验**  
+  对话历史与会话上下文统一管理，为后续进一步增强 Memory / Agent 能力打下基础。
+
+- 🎨 **产品化前端界面**  
+  聊天界面已从基础 Demo 风格逐步升级为更接近真实 AI 产品的展示风格，具备侧边栏、多会话、欢迎页、空状态、加载态、流式态、错误态等完整体验。
+
+- 🐳 **容器化部署**  
+  支持通过 `docker-compose` 快速拉起依赖环境，降低本地启动成本。
+
+---
+
+## 🏗️ 技术栈
 
 | 维度 | 技术选型 |
 | :--- | :--- |
 | **后端框架** | Spring Boot 3.5.x |
-| **AI 框架** | LangChain4j (1.12.2-beta) |
+| **AI 框架** | LangChain4j 1.12.2-beta |
 | **持久层** | Spring Data JPA + MySQL 8.0 |
-| **向量库** | BGE-Small-ZH (本地 Embeddings) |
-| **前端** | HTML5 + CSS3 (Flexbox) + JavaScript (ES6) |
-| **部署** | Docker & Docker Compose |
+| **向量能力** | BGE-Small-ZH（本地 Embeddings） |
+| **前端** | HTML5 + CSS3 + JavaScript（ES6） |
+| **通信方式** | SSE（Server-Sent Events）流式输出 |
+| **部署方式** | Docker / Docker Compose |
 
 ---
 
-## 🚀 快速开始
+## 🧩 当前能力结构
 
-### 1. 环境准备
-确保你的电脑已安装：
-- JDK 17+
-- Docker Desktop
-- Maven 3.6+
+### 1. Chat 对话主链路
+- 支持流式对话输出
+- 支持多轮对话上下文承接
+- 支持会话创建、切换、标题生成
 
-### 2. 配置 API KEY
-在 `src/main/resources/application.yml` 中配置你的 DeepSeek API Key，或者设置环境变量：
-```yaml
-langchain4j:
-  open-ai:
-    streaming-chat-model:
-      api-key: ${DEEPSEEK_API_KEY}
+### 2. Session 会话管理
+- 会话列表查询
+- 会话消息回显
+- 新建对话
+- 重命名会话
+- 会话上下文持久化
+
+### 3. RAG 知识增强
+- PDF 上传
+- 文档解析
+- 文本切块
+- 本地向量化
+- 检索增强回答
+
+### 4. Tool Calling
+- 天气工具调用
+- 时间类问题特殊处理
+- 为后续更多工具扩展预留能力入口
+
+### 5. 产品化前端
+- 左侧会话侧边栏
+- 主聊天区域
+- 欢迎页 / 空状态 / 加载态 / 错误态
+- 输入区产品化设计
+- 设置 / 扩展抽屉预留
+
+---
+
+## 🆕 最近更新
+
+### 2026-04-17｜聊天架构渐进式优化 + 产品级前端升级
+
+#### 后端部分
+- 拆分原本职责较重的 `ChatController`
+- 新增：
+    - `KnowledgeController`
+    - `SessionController`
+    - `SessionService`
+- 持续瘦身 `LlmChatService`，将多个职责逐步拆分为独立组件：
+    - `ReferencePromptBuilder`
+    - `TimeQuestionHandler`
+    - `ChatToolManager`
+    - `ChatMessagePreparer`
+    - `SessionAutoTitleTrigger`
+    - `ChatSessionContextService`
+
+#### 前端部分
+- 将原有聊天页面升级为更接近真实 AI 产品的界面风格
+- 重构：
+    - 左侧边栏
+    - 顶部状态区
+    - 主聊天区
+    - 产品化输入区
+    - 设置抽屉
+- 补齐：
+    - 欢迎页
+    - 空会话状态
+    - 无历史记录状态
+    - 加载状态
+    - 流式输出状态
+    - 网络错误状态
+
+#### 交互与稳定性优化
+- 修复会话切换时界面乱跳问题
+- 增加请求序号控制，避免旧请求覆盖新请求
+- 使用 `AbortController` 中断过期请求
+- 切换会话时主动关闭旧流式连接
+- 增加消息缓存，减少切换时的闪烁与重复加载
+
+#### 本次更新价值
+这次更新的重点不是“单纯把页面变好看”，而是让项目整体更接近一个真正可展示、可讲解、可继续扩展的 AI 产品。
+
+---
+
+## 📁 项目结构（示意）
+
+```text
+src/main/java/com/example/ai_chat_v1
+├── controller
+│   ├── ChatController
+│   ├── SessionController
+│   └── KnowledgeController
+├── service
+│   ├── LlmChatService
+│   ├── SessionService
+│   ├── ChatToolManager
+│   ├── ChatMessagePreparer
+│   ├── ChatSessionContextService
+│   ├── TimeQuestionHandler
+│   ├── ReferencePromptBuilder
+│   └── SessionAutoTitleTrigger
+├── repository
+├── entity
+├── dto
+├── config
+└── tool
