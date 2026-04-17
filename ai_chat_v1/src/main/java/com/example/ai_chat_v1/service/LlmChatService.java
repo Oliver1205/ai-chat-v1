@@ -1,6 +1,7 @@
 package com.example.ai_chat_v1.service;
 
-import com.example.ai_chat_v1.tool.WeatherTool; // 👇 新增导入：我们的武器库
+import com.example.ai_chat_v1.tool.TimeTool;
+import com.example.ai_chat_v1.tool.WeatherTool;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 @Service
@@ -26,17 +28,24 @@ public class LlmChatService {
     private final StreamingChatModel chatModel;
     private final ChatMemoryManager memoryManager;
     private final KnowledgeBaseManager knowledgeBaseManager;
-
-    // 👇 新增 1：引入武器库和 JSON 解析器
     private final WeatherTool weatherTool;
+    private final TimeTool timeTool;
+    private final SessionTitleService sessionTitleService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // 👇 新增 2：构造器注入
-    public LlmChatService(StreamingChatModel chatModel, ChatMemoryManager memoryManager, KnowledgeBaseManager knowledgeBaseManager, WeatherTool weatherTool) {
+    public LlmChatService(StreamingChatModel chatModel,
+                          ChatMemoryManager memoryManager,
+                          KnowledgeBaseManager knowledgeBaseManager,
+                          WeatherTool weatherTool,
+                          TimeTool timeTool,
+                          SessionTitleService sessionTitleService) {
         this.chatModel = chatModel;
         this.memoryManager = memoryManager;
         this.knowledgeBaseManager = knowledgeBaseManager;
         this.weatherTool = weatherTool;
+        this.timeTool = timeTool;
+        this.sessionTitleService = sessionTitleService;
     }
 
     public void streamChat(String sessionId,
@@ -50,9 +59,18 @@ public class LlmChatService {
             return;
         }
 
-        // --- RAG 检索阶段 (保持你完美的防污染设计不变) ---
-        String referenceInfo = knowledgeBaseManager.search(userMessage);
+        sessionTitleService.ensureSessionExists(sessionId);
+        sessionTitleService.touchSession(sessionId);
+
         ChatMemory chatMemory = memoryManager.getOrCreate(sessionId);
+
+        // 先做时间类问题硬路由，彻底避免模型瞎猜日期
+        if (isDateOrTimeQuestion(userMessage)) {
+            handleTimeQuestion(chatMemory, userMessage, onToken, onComplete, onError, sessionId);
+            return;
+        }
+
+        String referenceInfo = knowledgeBaseManager.search(userMessage);
         chatMemory.add(UserMessage.from(userMessage));
 
         List<ChatMessage> messagesToSend = new ArrayList<>(chatMemory.messages());
@@ -60,85 +78,122 @@ public class LlmChatService {
         if (!referenceInfo.isEmpty()) {
             messagesToSend.remove(messagesToSend.size() - 1);
 
-            // 👇 核心升级：给大模型下达极度严厉的“过滤指令”
             String augmentedText = "下面是一些【参考资料】。请仔细阅读并判断它们是否与我的问题真正相关。\n" +
                     "1. 如果相关，请结合资料进行回答。\n" +
-                    "2. 🚨【极其重要】如果参考资料与我的问题【毫无关系】（例如我问天气或人物，资料却是公司规章或Wi-Fi），请【完全忽略】这些资料，直接用你的常识回答！\n" +
-                    "3. 🚨【禁止事项】在回答时，【绝对不要】出现“根据提供的参考资料”、“参考资料中没有提到”、“资料显示”等类似的话术，做到自然、顺畅。\n\n" +
+                    "2. 🚨【极其重要】如果参考资料与我的问题【毫无关系】（例如我问天气、日期、时间或人物，资料却是公司规章或 Wi-Fi），请【完全忽略】这些资料，直接回答问题！\n" +
+                    "3. 🚨【禁止事项】如果参考资料无关，【绝对不要】在回答里提“参考资料无关”“根据资料”“资料中没有提到”等说明，直接自然回答。\n\n" +
                     "【参考资料】\n" + referenceInfo + "\n\n" +
                     "【我的问题】\n" + userMessage;
 
             messagesToSend.add(UserMessage.from(augmentedText));
         }
 
-        // 👇 新增 3：启动 Agent 核心执行引擎
-        executeAgentLoop(chatMemory, messagesToSend, onToken, onComplete, onError);
+        executeAgentLoop(sessionId, chatMemory, messagesToSend, onToken, onComplete, onError);
     }
 
-    // 👇 新增 4：Agent 核心思考与执行循环 (真正的魔法发生在这里)
-    private void executeAgentLoop(ChatMemory chatMemory,
+    private void handleTimeQuestion(ChatMemory chatMemory,
+                                    String userMessage,
+                                    Consumer<String> onToken,
+                                    Runnable onComplete,
+                                    Consumer<Throwable> onError,
+                                    String sessionId) {
+        try {
+            chatMemory.add(UserMessage.from(userMessage));
+
+            String answer;
+            if (containsAny(userMessage, "几点", "时间", "现在几时", "现在几点", "当前时间")) {
+                answer = timeTool.now();
+            } else if (containsAny(userMessage, "星期几", "周几", "礼拜几")) {
+                answer = timeTool.dayOfWeek();
+            } else {
+                answer = timeTool.today();
+            }
+
+            chatMemory.add(AiMessage.from(answer));
+            onToken.accept(answer);
+
+            CompletableFuture.runAsync(() -> {
+                try {
+                    sessionTitleService.tryAutoGenerateTitle(sessionId);
+                } catch (Exception ignored) {
+                }
+            });
+
+            onComplete.run();
+        } catch (Exception e) {
+            onError.accept(e);
+        }
+    }
+
+    private boolean isDateOrTimeQuestion(String text) {
+        return containsAny(text,
+                "今天几号", "今天是几号", "今天几月几号", "今天多少号",
+                "今天日期", "当前日期", "今日日期",
+                "今天星期几", "今天周几", "今天礼拜几",
+                "现在几点", "现在几时", "当前时间", "现在时间");
+    }
+
+    private boolean containsAny(String text, String... keywords) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        for (String keyword : keywords) {
+            if (text.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void executeAgentLoop(String sessionId,
+                                  ChatMemory chatMemory,
                                   List<ChatMessage> messagesToSend,
                                   Consumer<String> onToken,
                                   Runnable onComplete,
                                   Consumer<Throwable> onError) {
 
-        // 组装请求，并把工具箱翻译成“说明书”挂载给大模型
         ChatRequest chatRequest = ChatRequest.builder()
                 .messages(messagesToSend)
-                .toolSpecifications(ToolSpecifications.toolSpecificationsFrom(weatherTool)) // 🔧 挂载武器！
+                .toolSpecifications(ToolSpecifications.toolSpecificationsFrom(weatherTool))
                 .build();
 
-        StringBuilder aiMessageBuilder = new StringBuilder();
-
         chatModel.chat(chatRequest, new StreamingChatResponseHandler() {
+
             @Override
             public void onPartialResponse(String partialResponse) {
-                aiMessageBuilder.append(partialResponse);
-                onToken.accept(partialResponse); // 把文字实时推给前台网页
+                onToken.accept(partialResponse);
             }
 
             @Override
             public void onCompleteResponse(ChatResponse completeResponse) {
                 AiMessage aiMessage = completeResponse.aiMessage();
-                // 无论 AI 回答了最终文字，还是发出了工具调用指令，都必须存入记忆
                 chatMemory.add(aiMessage);
 
-                // 🚨 Agent 拦截器：大模型是不是发出调用工具的请求了？
                 if (aiMessage.hasToolExecutionRequests()) {
                     for (ToolExecutionRequest toolReq : aiMessage.toolExecutionRequests()) {
-
-                        // 发现它想调用我们写的 getWeather 方法！
-                        if ("getWeather".equals(toolReq.name())) {
-                            try {
-                                // 步骤 A: 解析大模型传过来的 JSON 参数（例如 {"city": "上海"}）
-                                JsonNode args = objectMapper.readTree(toolReq.arguments());
-                                String city = args.get("city").asText();
-
-                                // 步骤 B: 真正执行我们的 Java 方法！（后台控制台会打印出那句提示）
-                                String toolResult = weatherTool.getWeather(city);
-
-                                // 步骤 C: 将执行结果打包成特殊的消息
-                                ToolExecutionResultMessage toolMessage = ToolExecutionResultMessage.from(toolReq, toolResult);
-
-                                // 步骤 D: 把结果塞进记忆和发送列表中
-                                chatMemory.add(toolMessage);
-                                messagesToSend.add(aiMessage); // 发送列表中必须包含刚才的调用指令
-                                messagesToSend.add(toolMessage); // 发送列表中加上我们的执行结果
-
-                            } catch (Exception e) {
-                                onError.accept(e);
-                                return;
-                            }
+                        try {
+                            ToolExecutionResultMessage toolMessage = executeTool(toolReq);
+                            chatMemory.add(toolMessage);
+                            messagesToSend.add(aiMessage);
+                            messagesToSend.add(toolMessage);
+                        } catch (Exception e) {
+                            onError.accept(e);
+                            return;
                         }
                     }
 
-                    // 💡 神之一手（递归调用）：带着拿到真实数据的聊天记录，再次问大模型！
-                    executeAgentLoop(chatMemory, messagesToSend, onToken, onComplete, onError);
-
-                } else {
-                    // 如果没有工具请求，说明大模型已经拿到了所有信息并生成了最终回答，彻底结束！
-                    onComplete.run();
+                    executeAgentLoop(sessionId, chatMemory, messagesToSend, onToken, onComplete, onError);
+                    return;
                 }
+
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        sessionTitleService.tryAutoGenerateTitle(sessionId);
+                    } catch (Exception ignored) {
+                    }
+                });
+
+                onComplete.run();
             }
 
             @Override
@@ -146,5 +201,18 @@ public class LlmChatService {
                 onError.accept(error);
             }
         });
+    }
+
+    private ToolExecutionResultMessage executeTool(ToolExecutionRequest toolReq) throws Exception {
+        String toolName = toolReq.name();
+
+        if ("getWeather".equals(toolName)) {
+            JsonNode args = objectMapper.readTree(toolReq.arguments());
+            String city = args.has("city") ? args.get("city").asText() : "";
+            String toolResult = weatherTool.getWeather(city);
+            return ToolExecutionResultMessage.from(toolReq, toolResult);
+        }
+
+        throw new IllegalStateException("暂不支持的工具调用：" + toolName);
     }
 }

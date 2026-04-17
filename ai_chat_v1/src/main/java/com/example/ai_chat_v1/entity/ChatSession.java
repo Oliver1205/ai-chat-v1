@@ -1,6 +1,10 @@
 package com.example.ai_chat_v1.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -9,25 +13,60 @@ public class ChatSession {
 
     @Id
     @Column(length = 36)
-    private String id; // 会话的唯一 ID（我们将使用字母数字组合的 UUID）
+    private String id;
 
-    @Column(nullable = false)
-    private String title; // 会话在侧边栏显示的标题
+    @Column(nullable = false, length = 100)
+    private String title;
+
+    @Column(name = "title_customized", nullable = false)
+    private Boolean titleCustomized = false;
 
     @Column(name = "create_time")
-    private LocalDateTime createTime; // 会话创建的时间
+    private LocalDateTime createTime;
 
-    // JPA 必须要求有一个无参构造函数
+    @Column(name = "last_active_time")
+    private LocalDateTime lastActiveTime;
+
     public ChatSession() {
     }
 
-    // --- 下面是 Getter 和 Setter 方法 ---
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    public String getId() {
+        return id;
+    }
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
+    public void setId(String id) {
+        this.id = id;
+    }
 
-    public LocalDateTime getCreateTime() { return createTime; }
-    public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public Boolean getTitleCustomized() {
+        return titleCustomized;
+    }
+
+    public void setTitleCustomized(Boolean titleCustomized) {
+        this.titleCustomized = titleCustomized;
+    }
+
+    public LocalDateTime getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(LocalDateTime createTime) {
+        this.createTime = createTime;
+    }
+
+    public LocalDateTime getLastActiveTime() {
+        return lastActiveTime;
+    }
+
+    public void setLastActiveTime(LocalDateTime lastActiveTime) {
+        this.lastActiveTime = lastActiveTime;
+    }
 }

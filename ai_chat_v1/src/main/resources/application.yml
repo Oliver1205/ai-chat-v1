@@ -36,3 +36,6 @@ langchain4j:
       temperature: 0.7
       log-requests: true
       log-responses: true
+
+amap:
+  web-api-key: ${AMAP_WEB_API_KEY}
