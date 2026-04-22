@@ -141,6 +141,34 @@
 
 ---
 
+### 2026-04-22 - StudyCoachAgent v1
+
+#### 新增
+- 新增 `StudyCoachAgent` 第一版，定位为学习教练型任务 Agent
+- 新增基于 ReAct 思路的调度链路：意图判断、记忆读取、知识检索、草稿生成、计划评估、结果修正、最终格式化输出
+- 新增 `MemoryReadTool`，可从当前会话历史中提取相关学习上下文
+- 新增 `LearningKnowledgeSearchTool`，复用现有知识库检索能力
+- 新增 `PlanEvaluateTool`，用于判断学习计划是否具体、可执行、是否过载、优先级是否清晰
+- 新增 StudyCoach 相关 DTO、Evaluator、Orchestrator、Formatter、PromptFactory 等模块
+
+#### 改动
+- 扩展聊天入口 `/api/chat`，新增 `mode` 参数支持 `study-coach` 模式
+- 前端新增最小模式切换入口，可在“通用对话”和 `StudyCoachAgent` 之间切换
+- 前端补充 StudyCoach 欢迎态、标题文案和输入提示
+- 保持现有 SSE、多会话、会话持久化和自动标题能力不变，采用渐进式增强接入 Agent
+
+#### 测试
+- 新增 `StudyCoachIntentAnalyzerTest`
+- 新增 `StudyCoachPlanEvaluatorTest`
+- 调整测试以保证本地无额外环境变量时也可通过基础测试
+- 本地执行 `./mvnw.cmd test` 已通过
+
+#### 第一版能力边界
+- 聚焦学习规划、学习复盘、动态调整下一步、知识点辅助解释
+- 暂不引入多 Agent
+- 暂不实现复杂长期记忆体系
+- 继续复用现有项目的 RAG、会话和流式输出基础设施
+
 ## 📁 项目结构（示意）
 
 ```text
