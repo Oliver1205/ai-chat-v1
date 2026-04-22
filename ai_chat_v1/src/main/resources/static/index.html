@@ -8,7 +8,6 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github-dark.min.css">
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/highlight.min.js"></script>
-
     <style>
         :root {
             color-scheme: dark;
@@ -328,6 +327,9 @@
             display: flex;
             flex-direction: column;
             min-width: 0;
+            min-height: 0;
+            height: 100vh;
+            overflow: hidden;
         }
 
         .topbar {
@@ -341,6 +343,9 @@
             background: rgba(10,10,10,0.78);
             backdrop-filter: blur(10px);
             z-index: 10;
+            position: sticky;
+            top: 0;
+            flex-shrink: 0;
         }
 
         .topbar-left,
@@ -411,7 +416,7 @@
 
         .chat-stage {
             position: relative;
-            flex: 1;
+            flex: 1 1 auto;
             min-height: 0;
             overflow: hidden;
             display: flex;
@@ -419,23 +424,32 @@
         }
 
         .chat-scroll {
-            flex: 1;
+            flex: 1 1 auto;
+            min-height: 0;
             overflow-y: auto;
-            padding: 28px 24px 20px;
+            overflow-x: hidden;
+            padding: 18px 24px 136px;
+            overscroll-behavior: contain;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
         }
 
         .chat-inner {
             max-width: var(--content-max-w);
             margin: 0 auto;
             width: 100%;
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
         }
 
         .state-block {
             display: grid;
             place-items: center;
-            min-height: calc(100vh - var(--topbar-h) - 180px);
+            min-height: calc(100vh - var(--topbar-h) - 220px);
             text-align: center;
-            padding: 24px;
+            padding: 24px 0 8px;
             color: var(--text-2);
         }
 
@@ -504,6 +518,9 @@
             display: flex;
             flex-direction: column;
             gap: 18px;
+            width: 100%;
+            padding-top: 4px;
+            padding-bottom: 12px;
         }
 
         .message {
@@ -511,6 +528,7 @@
             grid-template-columns: 40px minmax(0, 1fr);
             gap: 14px;
             align-items: start;
+            width: 100%;
         }
 
         .message.user {
@@ -527,6 +545,8 @@
             background: rgba(255,255,255,0.03);
             color: var(--text-2);
             flex-shrink: 0;
+            position: sticky;
+            top: 8px;
         }
 
         .message.user .avatar {
@@ -641,10 +661,14 @@
         }
 
         .composer-shell {
-            padding: 0 24px 22px;
+            flex-shrink: 0;
+            position: sticky;
+            bottom: 0;
+            z-index: 12;
+            padding: 12px 24px 18px;
             border-top: 1px solid transparent;
             background:
-                    linear-gradient(180deg, rgba(10,10,10,0) 0%, rgba(10,10,10,.78) 16%, rgba(10,10,10,.94) 48%);
+                    linear-gradient(180deg, rgba(10,10,10,0) 0%, rgba(10,10,10,.68) 18%, rgba(10,10,10,.92) 46%, rgba(10,10,10,1) 100%);
         }
 
         .composer {
@@ -968,6 +992,7 @@
             .chat-scroll {
                 padding-left: 18px;
                 padding-right: 18px;
+                padding-bottom: 132px;
             }
 
             .welcome-grid {
@@ -1018,11 +1043,11 @@
             }
 
             .chat-scroll {
-                padding: 16px 12px 12px;
+                padding: 14px 12px 124px;
             }
 
             .composer-shell {
-                padding: 0 12px 14px;
+                padding: 10px 12px 14px;
             }
 
             .composer {
@@ -1103,7 +1128,7 @@
 
                 <div class="assistant-meta">
                     <div class="assistant-title">
-                        <h2>Workspace Assistant</h2>
+                        <h2 id="assistantTitle">Workspace Assistant</h2>
                         <span class="pill">ai-chat-v1</span>
                     </div>
                     <div class="assistant-sub" id="conversationSubtitle">面向演示的个人 AI 产品界面</div>
@@ -1111,6 +1136,7 @@
             </div>
 
             <div class="topbar-right">
+                <button class="pill" id="agentModeToggle" type="button">模式：通用对话</button>
                 <span class="pill hide-on-tablet" id="memoryChip">记忆：开启</span>
                 <span class="pill hide-on-tablet" id="toolsChip">工具：开启</span>
                 <span class="pill" id="headerModelChip">DeepSeek-V3</span>
@@ -1281,12 +1307,14 @@
         sessionListSeq: 0,
         messageFetchController: null,
         listFetchController: null,
+        shouldStickToBottom: true,
         settings: {
             model: 'DeepSeek-V3',
             memory: true,
             tools: true,
             rag: true,
-            temperature: 0.7
+            temperature: 0.7,
+            agentMode: 'default'
         }
     };
 
@@ -1301,6 +1329,7 @@
         newChatBtn: document.getElementById('newChatBtn'),
         uploadBtn: document.getElementById('uploadBtn'),
         toolBtn: document.getElementById('toolBtn'),
+        agentModeToggle: document.getElementById('agentModeToggle'),
         toast: document.getElementById('toast'),
         streamStatusText: document.getElementById('streamStatusText'),
         openSettingsBtn: document.getElementById('openSettingsBtn'),
@@ -1318,7 +1347,8 @@
         toolsChip: document.getElementById('toolsChip'),
         headerModelChip: document.getElementById('headerModelChip'),
         sidebarModelName: document.getElementById('sidebarModelName'),
-        conversationSubtitle: document.getElementById('conversationSubtitle')
+        conversationSubtitle: document.getElementById('conversationSubtitle'),
+        assistantTitle: document.getElementById('assistantTitle')
     };
 
     window.addEventListener('load', init);
@@ -1338,6 +1368,8 @@
         els.messageInput.addEventListener('keydown', handleComposerKeydown);
         els.messageInput.addEventListener('input', autoResizeTextarea);
 
+        els.chatScroll.addEventListener('scroll', handleChatScroll, { passive: true });
+
         els.openSettingsBtn.addEventListener('click', openSettingsDrawer);
         els.closeSettingsBtn.addEventListener('click', closeSettingsDrawer);
         els.drawerBackdrop.addEventListener('click', () => {
@@ -1352,6 +1384,20 @@
 
         els.toolBtn.addEventListener('click', () => {
             showToast('工具入口已预留，可继续扩展天气、搜索等能力。');
+        });
+
+        els.agentModeToggle.addEventListener('click', () => {
+            state.settings.agentMode = state.settings.agentMode === 'study-coach' ? 'default' : 'study-coach';
+            applySettingsUI();
+            const currentMessages = state.currentSessionId
+                ? (state.messageCache.get(state.currentSessionId) || [])
+                : [];
+            if (!state.currentSessionId || currentMessages.length === 0) {
+                renderWelcomeState();
+            }
+            showToast(state.settings.agentMode === 'study-coach'
+                ? '已切换到 StudyCoachAgent'
+                : '已切换到通用对话模式');
         });
 
         els.memorySwitch.addEventListener('click', () => toggleSetting('memory'));
@@ -1479,7 +1525,7 @@
 
         const cachedMessages = state.messageCache.get(sessionId);
         if (cachedMessages && cachedMessages.length) {
-            renderMessages(cachedMessages);
+            renderMessages(cachedMessages, { scrollMode: 'top' });
         } else if (showLoading) {
             renderLoadingState('正在加载会话内容...');
         }
@@ -1513,7 +1559,7 @@
 
             state.messageCache.set(sessionId, normalizedMessages);
             state.loadedSessionId = sessionId;
-            renderMessages(normalizedMessages);
+            renderMessages(normalizedMessages, { scrollMode: 'top' });
         } catch (error) {
             if (error.name === 'AbortError') {
                 return;
@@ -1645,7 +1691,9 @@
         return { role, content: String(content) };
     }
 
-    function renderMessages(messages) {
+    function renderMessages(messages, options = {}) {
+        const { scrollMode = 'top' } = options;
+
         if (!Array.isArray(messages) || messages.length === 0) {
             renderEmptySessionState();
             return;
@@ -1656,11 +1704,20 @@
         els.messageList.innerHTML = '';
 
         messages.forEach(msg => {
-            appendMessage(msg.role === 'USER' ? 'user' : 'ai', msg.content, { streaming: false });
+            appendMessage(msg.role === 'USER' ? 'user' : 'ai', msg.content, {
+                streaming: false,
+                stickBottom: false
+            });
         });
 
-        scrollToBottom();
         highlightCodeBlocks();
+
+        if (scrollMode === 'bottom') {
+            state.shouldStickToBottom = true;
+            scrollToBottom(true);
+        } else {
+            scrollToTop();
+        }
     }
 
     async function sendMessage() {
@@ -1675,6 +1732,7 @@
 
         state.isStreaming = true;
         state.streamingSessionId = sessionId;
+        state.shouldStickToBottom = true;
         updateStreamStatus('Streaming');
         setComposerEnabled(false);
 
@@ -1683,19 +1741,23 @@
 
         const userMsg = { role: 'USER', content: message };
         pushMessageToCache(sessionId, userMsg);
-        appendMessage('user', message, { streaming: false });
+        appendMessage('user', message, { streaming: false, stickBottom: true });
 
         els.messageInput.value = '';
         autoResizeTextarea();
 
-        const aiBubble = appendMessage('ai', '', { streaming: true });
+        const aiBubble = appendMessage('ai', '', { streaming: true, stickBottom: true });
         pushMessageToCache(sessionId, { role: 'AI', content: '' });
 
         let fullResponse = '';
 
-        const source = new EventSource(
-            `/api/chat?sessionId=${encodeURIComponent(sessionId)}&message=${encodeURIComponent(message)}`
-        );
+        const query = new URLSearchParams({
+            sessionId,
+            message,
+            mode: state.settings.agentMode
+        });
+
+        const source = new EventSource(`/api/chat?${query.toString()}`);
 
         state.activeStream = source;
 
@@ -1710,7 +1772,7 @@
             if (state.currentSessionId === sessionId) {
                 renderBubbleContent(aiBubble, fullResponse);
                 aiBubble.classList.add('streaming');
-                scrollToBottom();
+                scrollToBottom(true);
             }
         };
 
@@ -1741,6 +1803,8 @@
             本次响应没有成功返回。请检查后端服务、网络状态或稍后重试。
           `;
                     showToast('本次请求失败，请稍后重试');
+                } else {
+                    scrollToBottom(true);
                 }
             }
 
@@ -1814,7 +1878,10 @@
         renderBubbleContent(bubble, text);
 
         els.messageList.appendChild(wrapper);
-        scrollToBottom();
+
+        if (options.stickBottom) {
+            scrollToBottom(true);
+        }
 
         return bubble;
     }
@@ -1904,20 +1971,56 @@
     }
 
     function updateConversationSubtitle() {
+        const defaultSubtitle = state.settings.agentMode === 'study-coach'
+            ? 'StudyCoachAgent · 学习规划 / 复盘 / 动态调整 / 知识点辅助解释'
+            : `模型 ${state.settings.model} · 温度 ${state.settings.temperature.toFixed(1)}`;
+
         if (!state.currentSessionId) {
-            els.conversationSubtitle.textContent = `模型 ${state.settings.model} · 温度 ${state.settings.temperature.toFixed(1)}`;
+            els.conversationSubtitle.textContent = defaultSubtitle;
             return;
         }
 
         const current = state.sessions.find(s => s.id === state.currentSessionId);
-        if (current?.title) {
-            els.conversationSubtitle.textContent = current.title;
-        } else {
-            els.conversationSubtitle.textContent = `模型 ${state.settings.model} · 温度 ${state.settings.temperature.toFixed(1)}`;
+        if (!current?.title) {
+            els.conversationSubtitle.textContent = defaultSubtitle;
+            return;
         }
+
+        els.conversationSubtitle.textContent = current.title;
     }
 
     function renderWelcomeState() {
+        if (state.settings.agentMode === 'study-coach') {
+            els.messageList.classList.add('hidden');
+            els.stateRoot.innerHTML = `
+      <div class="state-block">
+        <div class="state-card">
+          <div class="state-kicker">StudyCoachAgent</div>
+          <h1 class="state-title">面向学习推进的任务型 Agent</h1>
+          <p class="state-desc">
+            聚焦学习规划、学习复盘、动态调整和知识点辅助解释。
+            它会优先结合当前会话历史和知识库片段，给出结构化、可执行的建议。
+          </p>
+          <div class="welcome-grid">
+            <div class="welcome-card">
+              <strong>学习规划</strong>
+              <p>“我这两天主要学了 JVM 和 JUC，但感觉项目推进不够，明天只有 4 小时，帮我安排一下。”</p>
+            </div>
+            <div class="welcome-card">
+              <strong>学习复盘</strong>
+              <p>“我今天刷了 3 道 JVM 题，项目没推进，算法做了一题但状态一般，帮我复盘一下。”</p>
+            </div>
+            <div class="welcome-card">
+              <strong>知识点解释</strong>
+              <p>“我还是搞不懂 Redis 和 MySQL 双写一致性，你结合我当前学习阶段给我解释一下。”</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+            return;
+        }
+
         els.messageList.classList.add('hidden');
         els.stateRoot.innerHTML = `
       <div class="state-block">
@@ -2070,6 +2173,15 @@
         els.toolsChip.textContent = `工具：${state.settings.tools ? '开启' : '关闭'}`;
         els.headerModelChip.textContent = state.settings.model;
         els.sidebarModelName.textContent = state.settings.model;
+        els.agentModeToggle.textContent = state.settings.agentMode === 'study-coach'
+            ? '模式：StudyCoachAgent'
+            : '模式：通用对话';
+        els.assistantTitle.textContent = state.settings.agentMode === 'study-coach'
+            ? 'StudyCoachAgent'
+            : 'Workspace Assistant';
+        els.messageInput.placeholder = state.settings.agentMode === 'study-coach'
+            ? '输入你的学习现状、目标、时间预算或当前卡点...'
+            : '给 ai-chat-v1 发送消息';
 
         updateConversationSubtitle();
     }
@@ -2084,9 +2196,26 @@
         });
     }
 
-    function scrollToBottom() {
+    function handleChatScroll() {
+        state.shouldStickToBottom = isNearBottom();
+    }
+
+    function isNearBottom(threshold = 96) {
+        const distance = els.chatScroll.scrollHeight - els.chatScroll.scrollTop - els.chatScroll.clientHeight;
+        return distance <= threshold;
+    }
+
+    function scrollToBottom(force = false) {
         requestAnimationFrame(() => {
+            if (!force && !state.shouldStickToBottom) return;
             els.chatScroll.scrollTop = els.chatScroll.scrollHeight;
+        });
+    }
+
+    function scrollToTop() {
+        requestAnimationFrame(() => {
+            els.chatScroll.scrollTop = 0;
+            state.shouldStickToBottom = false;
         });
     }
 
